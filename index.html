@@ -150,6 +150,18 @@
   .calc input { width:120px; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); }
   .note { color:var(--muted); font-size:.84rem; margin-top:14px; }
   .note a { color:var(--brand); }
+
+  .forms { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 0; }
+  .hgrid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); }
+  .panel.hunt { display:grid; gap:6px; justify-items:center; text-align:center; }
+  .panel.hunt img { width:120px; height:120px; object-fit:contain; }
+  .panel.hunt h3 { margin:0; text-transform:capitalize; }
+  .panel.hunt .bar { width:100%; }
+  .panel.hunt .actions { justify-content:center; margin-top:6px; }
+  .panel.hunt.done { border-color:color-mix(in srgb,var(--gold) 55%,var(--border)); background:linear-gradient(160deg,color-mix(in srgb,var(--gold) 12%,var(--surface)),var(--surface)); }
+  .count { font-size:2.6rem; font-weight:900; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .btn.big { padding:12px 30px; font-size:1.1rem; }
+  .m { color:var(--muted); font-size:.88rem; }
   .state { text-align:center; padding:56px 14px; color:var(--muted); }
   .state .big { font-size:2.6rem; }
   .skeleton { height:190px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,var(--surface) 30%,var(--surface-2) 50%,var(--surface) 70%) 0 0/300% 100%; animation:shimmer 1.4s infinite linear; }
@@ -198,39 +210,41 @@ const STATS = [["hp","HP"],["attack","Ataque"],["defense","Defesa"],["special-at
 const GENS = ["I","II","III","IV","V","VI","VII","VIII","IX"];
 
 /* Métodos de shiny hunting. d = denominador da chance (1/d) sem Shiny Charm; dc = com Charm.
-   k: wild (selvagem) | breed (ovos) | static (encontro fixo/reset) | legend (especial só para lendários).
+   k: wild (selvagem) | breed (ovos) | static (encontro fixo/presente) | legend (só lendários).
+   needs: o que o Pokémon precisa ter nesse jogo (wild = qualquer encontro selvagem, grass = mato, fish = pesca).
+   Para jogos até a 7ª geração isso é conferido na PokéAPI; nos demais, é assumido.
    approx: valor aproximado. Edite livremente: é só um array. */
 const M = (name, k, d, dc, extra = {}) => ({ name, k, d, dc: dc ?? null, ...extra });
-const WILD = (d, dc) => M("Encontro selvagem", "wild", d, dc);
-const STAT = (d, dc) => M("Reset de encontro fixo", "static", d, dc, { note: "Para lendários, presentes e iniciais: salve, encontre e reinicie o jogo." });
+const WILD = (d, dc) => M("Encontro selvagem", "wild", d, dc, { needs: "wild" });
+const STAT = (d, dc) => M("Reset de encontro fixo", "static", d, dc, { note: "Lendários, presentes e iniciais: salve, encontre e reinicie o jogo." });
 const MAS = (d, dc) => M("Masuda Method (ovos)", "breed", d, dc, { note: "Choque ovos de 2 Pokémon de idiomas diferentes (precisa de Ditto ou um casal)." });
+const RADAR = (d) => M("Poké Radar (corrente 40)", "wild", d, null, { needs: "grass", approx: true, note: "Só em capim agitado; perder a corrente zera o progresso." });
+const CHAINFISH = M("Pesca em corrente (20)", "wild", 100, null, { needs: "fish", approx: true, note: "Pesque em sequência sem falhar; só para Pokémon de pesca." });
 const GAMES = [
   { id:"gsc", name:"Gold / Silver / Crystal", gen:2, dex:["original-johto"], charm:false, methods:[WILD(8192), STAT(8192)] },
   { id:"rse", name:"Ruby / Sapphire / Emerald", gen:3, dex:["hoenn"], charm:false, methods:[WILD(8192), STAT(8192)] },
-  { id:"dppt", name:"Diamond / Pearl / Platinum", gen:4, dex:["original-sinnoh","extended-sinnoh"], charm:false, methods:[WILD(8192),
-      M("Poké Radar (corrente 40)", "wild", 200, null, { approx:true, note:"Só em capim agitado; perder a corrente zera o progresso." }), MAS(1638), STAT(8192)] },
+  { id:"dppt", name:"Diamond / Pearl / Platinum", gen:4, dex:["original-sinnoh","extended-sinnoh"], charm:false, methods:[WILD(8192), RADAR(200), MAS(1638), STAT(8192)] },
   { id:"hgss", name:"HeartGold / SoulSilver", gen:4, dex:["updated-johto"], charm:false, methods:[WILD(8192), MAS(1638), STAT(8192)] },
   { id:"bw", name:"Black / White", gen:5, dex:["original-unova"], charm:false, methods:[WILD(8192), MAS(1365), STAT(8192)] },
   { id:"b2w2", name:"Black 2 / White 2", gen:5, dex:["updated-unova"], charm:true, methods:[WILD(8192,2731), MAS(1365,1024), STAT(8192,2731)] },
-  { id:"xy", name:"X / Y", gen:6, dex:["kalos-central","kalos-coastal","kalos-mountain"], charm:true, methods:[WILD(4096,1365),
-      M("Poké Radar (corrente 40)", "wild", 99, null, { approx:true, note:"Só em capim agitado; mantenha a corrente." }),
-      M("Pesca em corrente (20)", "wild", 100, null, { approx:true, note:"Só Pokémon de pesca; precisa pescar em sequência sem falhar." }),
-      M("Friend Safari", "wild", 512, null, { approx:true, note:"Só os Pokémon disponíveis no Safári de Amigos." }),
-      MAS(683,512), STAT(4096,1365)] },
-  { id:"oras", name:"Omega Ruby / Alpha Sapphire", gen:6, dex:["updated-hoenn"], charm:true, methods:[WILD(4096,1365),
-      M("Pesca em corrente (20)", "wild", 100, null, { approx:true, note:"Só Pokémon de pesca; precisa pescar em sequência sem falhar." }), MAS(683,512), STAT(4096,1365)] },
+  { id:"xy", name:"X / Y", gen:6, dex:["kalos-central","kalos-coastal","kalos-mountain"], charm:true, methods:[WILD(4096,1365), RADAR(99), CHAINFISH, MAS(683,512), STAT(4096,1365)] },
+  { id:"oras", name:"Omega Ruby / Alpha Sapphire", gen:6, dex:["updated-hoenn"], charm:true, methods:[WILD(4096,1365), CHAINFISH, MAS(683,512), STAT(4096,1365)] },
   { id:"smusum", name:"Sun / Moon / Ultra Sun / Ultra Moon", gen:7, dex:["original-alola","updated-alola"], charm:true, methods:[WILD(4096,1365),
-      M("SOS Chaining (corrente 70+)", "wild", 315, 273, { approx:true, note:"Mantenha o Pokémon chamando aliados; mais eficiente em Pokémon que chamam aliados." }), MAS(683,512), STAT(4096,1365)] },
+      M("SOS Chaining (corrente 70+)", "wild", 315, 273, { needs:"wild", approx:true, note:"Mantenha o Pokémon chamando aliados; funciona melhor com quem chama aliados com frequência." }), MAS(683,512), STAT(4096,1365)] },
   { id:"lgpe", name:"Let's Go Pikachu / Eevee", gen:7, dex:["letsgo-kanto"], charm:true, methods:[
-      M("Catch Combo 31+", "wild", 341, 273, { approx:true, note:"Capture o mesmo Pokémon em sequência; a chance sobe a partir de 11, 21 e 31." }), STAT(4096,1365)] },
+      M("Catch Combo 31+", "wild", 341, 273, { needs:"wild", approx:true, note:"Capture o mesmo Pokémon em sequência; a chance sobe a partir de 11, 21 e 31." }), STAT(4096,1365)] },
   { id:"swsh", name:"Sword / Shield", gen:8, dex:["galar","isle-of-armor","crown-tundra"], charm:true, methods:[WILD(4096,1365), MAS(683,512), STAT(4096,1365),
       M("Dynamax Adventures", "legend", 300, null, { approx:true, needDex:"crown-tundra", note:"Só lendários da Crown Tundra; o lendário final tem chance fixa melhor." })] },
   { id:"bdsp", name:"Brilliant Diamond / Shining Pearl", gen:8, dex:["original-sinnoh"], charm:true, methods:[WILD(4096,1365), MAS(683,512), STAT(4096,1365)] },
   { id:"pla", name:"Legends: Arceus", gen:8, dex:["hisui"], charm:true, methods:[WILD(4096,1024),
-      M("Surtos em Massa", "wild", 158, null, { approx:true, note:"Surtos aumentam muito a chance; Shiny Charm e pesquisa completa melhoram ainda mais." }), STAT(4096,1024)] },
+      M("Surtos em Massa", "wild", 158, null, { needs:"wild", approx:true, note:"Surtos aumentam muito a chance; Shiny Charm e pesquisa completa melhoram ainda mais." }), STAT(4096,1024)] },
   { id:"sv", name:"Scarlet / Violet", gen:9, dex:["paldea","kitakami","blueberry"], charm:true, methods:[WILD(4096,1365),
-      M("Sanduíche Sparkling Power Lv.3", "wild", 1024, 683, { note:"Faça o sanduíche certo e cace por perto; Surtos em Massa melhoram ainda mais (aprox.)." }), MAS(683,512), STAT(4096,1365)] },
+      M("Sanduíche Sparkling Power Lv.3", "wild", 1024, 683, { needs:"wild", note:"Faça o sanduíche certo e cace por perto; Surtos em Massa melhoram ainda mais (aprox.)." }), MAS(683,512), STAT(4096,1365)] },
 ];
+/* Jogos em que a PokéAPI tem dados de encontros (versões do jogo). Nos outros, a disponibilidade selvagem é assumida. */
+const ENC_VERSIONS = { gsc:["gold","silver","crystal"], rse:["ruby","sapphire","emerald"], dppt:["diamond","pearl","platinum"], hgss:["heartgold","soulsilver"],
+  bw:["black","white"], b2w2:["black-2","white-2"], xy:["x","y"], oras:["omega-ruby","alpha-sapphire"], smusum:["sun","moon","ultra-sun","ultra-moon"] };
+const FORM_GAMES = { alola:["smusum"], galar:["swsh"], hisui:["pla"], paldea:["sv"] };
 
 /* =====================================================================
    UTILITÁRIOS
@@ -242,6 +256,8 @@ const el = (tag, props = {}, kids = []) => {
   for (const k of [].concat(kids)) if (k != null) n.append(k);
   return n;
 };
+/* replaceChildren converte null em texto "null"; este auxiliar ignora valores vazios */
+const put = (node, ...kids) => node.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const pretty = (n) => n.split("-").map(cap).join(" ");
 const fmt = (n) => Math.round(n).toLocaleString("pt-BR");
@@ -252,15 +268,41 @@ function api(path) {
   return cache.get(path);
 }
 const idFromUrl = (u) => Number(u.match(/\/(\d+)\/?$/)[1]);
-const img = (id, shiny = false, alt = "") => { const i = el("img", { src: ART(id, shiny), alt, loading: "lazy", decoding: "async" }); i.referrerPolicy = "no-referrer"; return i; };
 const typeBadge = (t) => { const s = el("span", { className: "type", textContent: (TYPES[t] || [pretty(t)])[0] }); s.style.background = (TYPES[t] || [0, "#777"])[1]; return s; };
 const statColor = (v) => v < 50 ? "#ef4444" : v < 80 ? "#f59e0b" : v < 110 ? "#84cc16" : v < 140 ? "#22c55e" : "#06b6d4";
 const stateBox = (emoji, title, text) => el("div", { className: "state" }, [el("div", { className: "big", textContent: emoji }), el("h2", { textContent: title }), el("div", { textContent: text })]);
+const load = (key, fallback) => { try { const v = JSON.parse(store.get(key)); return v ?? fallback; } catch { return fallback; } };
 
-const S = { species: [], byId: new Map(), view: "pokedex", shiny: false, team: [], cmp: [null, null], hunt: null, charm: false,
-            q: "", type: "", gen: "", shown: 60, typeSet: null, genSet: null };
-try { const t = JSON.parse(store.get("gs.team") || "[]"); if (Array.isArray(t)) S.team = t.filter(Number.isInteger).slice(0, 6); } catch {}
+/* estado */
+const S = { species: [], byId: new Map(), byName: new Map(), all: [], allById: new Map(), view: "pokedex", shiny: false, showForms: false,
+            team: [], cmp: [null, null], hunt: null, charm: false, q: "", type: "", gen: "", shown: 60, typeSet: null, genSet: null, hunts: [] };
+S.team = (load("gs.team", []) || []).filter(Number.isInteger).slice(0, 6);
+S.hunts = (load("gs.hunts", []) || []).filter((h) => h && h.id && Number.isInteger(h.pid));
 S.charm = store.get("gs.charm") === "1";
+const saveHunts = () => store.set("gs.hunts", JSON.stringify(S.hunts));
+
+/* formas: regionais, Mega, Gigantamax */
+const FORM_RE = /^(.+?)-(alola|galar|hisui|paldea|mega-x|mega-y|mega|gmax)$/;
+const FORM_TAG = { alola:"Alola", galar:"Galar", hisui:"Hisui", paldea:"Paldea", "mega-x":"Mega X", "mega-y":"Mega Y", mega:"Mega", gmax:"Gigantamax" };
+const FORM_SHOW_RE = /-(alola|galar|hisui|paldea|mega|gmax)(-|$)/;
+function baseSpeciesId(name) {
+  let n = name;
+  while (n) { const s = S.byName.get(n); if (s) return s.id; const i = n.lastIndexOf("-"); if (i < 0) break; n = n.slice(0, i); }
+  return 99999;
+}
+function labelOf(id) {
+  const sp = S.byId.get(id); if (sp) return pretty(sp.name);
+  const e = S.allById.get(id); if (!e) return "#" + id;
+  const m = e.name.match(FORM_RE); if (m) return `${pretty(m[1])} (${FORM_TAG[m[2]]})`;
+  return pretty(e.name);
+}
+const dexNumber = (id) => { const e = S.allById.get(id); return id <= 10000 ? id : (e ? baseSpeciesId(e.name) : 0); };
+const img = (id, shiny = false, alt = "") => {
+  const i = el("img", { src: ART(id, shiny), alt, loading: "lazy", decoding: "async" }); i.referrerPolicy = "no-referrer";
+  i.onerror = () => { const e = S.allById.get(id), b = e && id > 10000 ? baseSpeciesId(e.name) : null;
+    if (b && b < 99999 && !i.dataset.fb) { i.dataset.fb = "1"; i.src = ART(b, shiny); } else i.style.visibility = "hidden"; };
+  return i;
+};
 
 /* =====================================================================
    TEMA
@@ -278,31 +320,34 @@ $("#theme").onclick = () => {
 applyTheme(store.get("gs.theme"));
 
 /* =====================================================================
-   PICKER (busca com sugestões)
+   PICKER (busca com sugestões; inclui formas)
    ===================================================================== */
 function picker(placeholder, onPick) {
   const wrap = el("div", { className: "picker" });
   const input = el("input", { type: "search", placeholder, autocomplete: "off", "aria-label": placeholder });
   const menu = el("ul", { className: "menu", hidden: true });
+  let timer;
   const hide = () => { menu.hidden = true; };
   const pick = (id) => { input.value = ""; hide(); onPick(id); };
   input.addEventListener("input", () => {
+    clearTimeout(timer);
     const q = input.value.trim().toLowerCase().replace(/\s+/g, "-");
     if (!q) return hide();
     const num = /^\d+$/.test(q) ? Number(q) : null;
-    const res = S.species.filter((s) => s.id === num || s.name.includes(q)).slice(0, 8);
-    menu.replaceChildren(...res.map((s) => {
-      const b = el("button", { type: "button" }, [img(s.id, false), el("span", { textContent: pretty(s.name) }), el("small", { textContent: "#" + s.id })]);
-      b.onclick = () => pick(s.id);
+    const hits = S.all.filter((e) => e.id === num || e.name.includes(q) || (S.byId.get(e.id)?.name || "").includes(q));
+    hits.sort((a, b) => (b.name.startsWith(q) - a.name.startsWith(q)) || (a.id - b.id));
+    menu.replaceChildren(...hits.slice(0, 8).map((e) => {
+      const b = el("button", { type: "button" }, [img(e.id, false), el("span", { textContent: labelOf(e.id) }), el("small", { textContent: "#" + dexNumber(e.id) })]);
+      b.onclick = () => pick(e.id);
       return el("li", {}, b);
     }));
-    menu.hidden = !res.length;
+    menu.hidden = !hits.length;
   });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { const first = menu.querySelector("button"); if (first) first.click(); }
     if (e.key === "Escape") hide();
   });
-  input.addEventListener("blur", () => setTimeout(hide, 150));
+  input.addEventListener("blur", () => { timer = setTimeout(hide, 150); });
   wrap.append(input, menu);
   return wrap;
 }
@@ -312,6 +357,7 @@ function picker(placeholder, onPick) {
    ===================================================================== */
 const getPoke = (id) => api(`/pokemon/${id}`);
 const getSpec = (id) => api(`/pokemon-species/${id}`);
+const specIdOf = (p) => idFromUrl(p.species.url);
 const bst = (p) => p.stats.reduce((a, s) => a + s.base_stat, 0);
 const statOf = (p, key) => p.stats.find((s) => s.stat.name === key).base_stat;
 
@@ -335,22 +381,28 @@ async function ensureFilterSets() {
     S.genSet = S.gen ? new Set((await api(`/generation/${S.gen}`)).pokemon_species.map((x) => idFromUrl(x.url))) : null;
   } catch { S.typeSet = S.genSet = null; }
 }
+function dexItems() {
+  if (!S.showForms) return S.species;
+  const forms = S.all.filter((e) => e.id > 10000 && FORM_SHOW_RE.test(e.name));
+  return [...S.species, ...forms].sort((a, b) => (dexNumber(a.id) - dexNumber(b.id)) || (a.id - b.id));
+}
 function filtered() {
   const q = S.q.trim().toLowerCase().replace(/\s+/g, "-"), num = /^\d+$/.test(q) ? Number(q) : null;
-  return S.species.filter((s) => (!q || s.name.includes(q) || s.id === num) && (!S.typeSet || S.typeSet.has(s.id)) && (!S.genSet || S.genSet.has(s.id)));
+  return dexItems().filter((s) => (!q || s.name.includes(q) || dexNumber(s.id) === num) && (!S.typeSet || S.typeSet.has(s.id)) && (!S.genSet || S.genSet.has(dexNumber(s.id))));
 }
 function viewPokedex(root) {
   const q = el("input", { type: "search", className: "grow", placeholder: "Buscar por nome ou número…", value: S.q, "aria-label": "Buscar Pokémon" });
   const typeSel = el("select", { "aria-label": "Tipo" }, [el("option", { value: "", textContent: "Todos os tipos" }), ...Object.entries(TYPES).map(([k, v]) => el("option", { value: k, textContent: v[0], selected: S.type === k }))]);
   const genSel = el("select", { "aria-label": "Geração" }, [el("option", { value: "", textContent: "Todas as gerações" }), ...GENS.map((g, i) => el("option", { value: String(i + 1), textContent: "Geração " + g, selected: S.gen === String(i + 1) }))]);
   const sh = el("label", { className: "switch" }, [el("input", { type: "checkbox", checked: S.shiny }), el("span", { textContent: "✨ Ver shiny" })]);
+  const fm = el("label", { className: "switch" }, [el("input", { type: "checkbox", checked: S.showForms }), el("span", { textContent: "🌍 Formas (regionais, Mega…)" })]);
   const out = el("div");
   const draw = () => {
     const rows = filtered(), vis = rows.slice(0, S.shown);
-    out.replaceChildren(
+    put(out, 
       el("p", { className: "lead", textContent: `${rows.length} Pokémon` }),
       rows.length ? el("div", { className: "grid" }, vis.map((s) => {
-        const b = el("button", { className: "pk", type: "button", "aria-label": "Abrir " + pretty(s.name) }, [img(s.id, S.shiny), el("div", { className: "num", textContent: "#" + String(s.id).padStart(4, "0") }), el("div", { className: "nm", textContent: pretty(s.name) })]);
+        const b = el("button", { className: "pk", type: "button", "aria-label": "Abrir " + labelOf(s.id) }, [img(s.id, S.shiny), el("div", { className: "num", textContent: "#" + String(dexNumber(s.id)).padStart(4, "0") }), el("div", { className: "nm", textContent: labelOf(s.id) })]);
         b.onclick = () => openDetail(s.id); return b;
       })) : stateBox("🔍", "Nenhum Pokémon encontrado", "Tente outro nome, tipo ou geração."),
       rows.length > vis.length ? el("div", { className: "more" }, el("button", { className: "btn ghost", type: "button", textContent: `Mostrar mais (${rows.length - vis.length})`, onclick: () => { S.shown += 60; draw(); } })) : null
@@ -360,27 +412,34 @@ function viewPokedex(root) {
   typeSel.onchange = async () => { S.type = typeSel.value; S.shown = 60; await ensureFilterSets(); draw(); };
   genSel.onchange = async () => { S.gen = genSel.value; S.shown = 60; await ensureFilterSets(); draw(); };
   sh.firstChild.onchange = (e) => { S.shiny = e.target.checked; draw(); };
-  root.append(el("h1", { textContent: "Pokédex" }), el("p", { className: "lead", textContent: "Toque em um Pokémon para ver stats, comparar, montar time e planejar o shiny." }),
-    el("div", { className: "tools" }, [q, typeSel, genSel, sh]), out);
+  fm.firstChild.onchange = (e) => { S.showForms = e.target.checked; S.shown = 60; draw(); };
+  root.append(el("h1", { textContent: "Pokédex" }), el("p", { className: "lead", textContent: "Toque em um Pokémon para ver stats, formas, comparar, montar time e planejar o shiny." }),
+    el("div", { className: "tools" }, [q, typeSel, genSel, sh, fm]), out);
   draw();
 }
 
-/* detalhe */
-async function openDetail(id) {
-  const dlg = $("#dlg"); let shiny = S.shiny;
-  dlg.replaceChildren(el("div", { className: "dlg" }, el("div", { className: "skeleton" }))); dlg.showModal();
+/* detalhe (aceita id de forma) */
+async function openDetail(id, shinyState) {
+  const dlg = $("#dlg"); let shiny = shinyState ?? S.shiny;
+  if (!dlg.open) dlg.showModal();
+  dlg.replaceChildren(el("div", { className: "dlg" }, el("div", { className: "skeleton" })));
   try {
-    const [p, sp] = await Promise.all([getPoke(id), getSpec(id)]);
+    const p = await getPoke(id), sp = await getSpec(specIdOf(p));
     const flavor = (sp.flavor_text_entries.find((f) => f.language.name === "en") || {}).flavor_text || "";
-    const pic = img(id, shiny, pretty(p.name)); pic.loading = "eager";
+    const pic = img(id, shiny, labelOf(id)); pic.loading = "eager";
     const tog = el("label", { className: "switch" }, [el("input", { type: "checkbox", checked: shiny }), el("span", { textContent: "✨ Shiny" })]);
-    tog.firstChild.onchange = (e) => { shiny = e.target.checked; pic.src = ART(id, shiny); };
+    tog.firstChild.onchange = (e) => { shiny = e.target.checked; pic.dataset.fb = ""; pic.src = ART(id, shiny); };
     const close = el("button", { className: "icon-btn close", type: "button", textContent: "✕", "aria-label": "Fechar", onclick: () => dlg.close() });
     const inTeam = S.team.includes(id);
+    const forms = sp.varieties.map((v) => idFromUrl(v.pokemon.url)).filter((v) => S.allById.has(v));
+    const chips = forms.length > 1 ? el("div", { className: "forms", role: "group", "aria-label": "Formas" }, forms.map((f) => {
+      const b = el("button", { className: "chip", type: "button", textContent: labelOf(f) }); b.setAttribute("aria-pressed", String(f === id));
+      b.onclick = () => openDetail(f, shiny); return b; })) : null;
     dlg.replaceChildren(el("div", { className: "dlg" }, [close,
-      el("div", { className: "dlg-head" }, [pic, el("div", {}, [el("div", { className: "lead", textContent: "#" + String(id).padStart(4, "0") }), el("h2", { textContent: pretty(p.name) }),
+      el("div", { className: "dlg-head" }, [pic, el("div", {}, [el("div", { className: "lead", textContent: "#" + String(dexNumber(id)).padStart(4, "0") }), el("h2", { textContent: labelOf(id) }),
         el("div", { className: "types", style: "justify-content:flex-start;margin:6px 0 10px" }, p.types.map((t) => typeBadge(t.type.name))), tog,
         el("div", { className: "lead", style: "font-size:.85rem", textContent: `${(p.height / 10).toFixed(1)} m · ${(p.weight / 10).toFixed(1)} kg` })])]),
+      chips,
       el("p", { className: "flavor", textContent: flavor.replace(/[\n\f]/g, " ") }),
       statBars(p),
       el("div", { className: "actions" }, [
@@ -399,18 +458,18 @@ function viewCompare(root) {
   const out = el("div");
   const draw = async () => {
     const [a, b] = S.cmp;
-    if (!a || !b) { out.replaceChildren(stateBox("⚔️", "Escolha dois Pokémon", "Use as buscas acima para comparar stats lado a lado.")); return; }
+    if (!a || !b) { out.replaceChildren(stateBox("⚔️", "Escolha dois Pokémon", "Use as buscas acima. Formas regionais e Mega também valem (ex.: “ninetales-alola”).")); return; }
     out.replaceChildren(el("div", { className: "cmp" }, [el("div", { className: "skeleton" }), el("div", { className: "skeleton" })]));
     try {
       const [pa, pb] = await Promise.all([getPoke(a), getPoke(b)]);
-      const panel = (p, o) => el("div", { className: "panel" }, [el("div", { className: "who" }, [img(p.id, S.shiny, pretty(p.name)), el("h3", { textContent: pretty(p.name) }),
+      const panel = (p, o) => el("div", { className: "panel" }, [el("div", { className: "who" }, [img(p.id, S.shiny, labelOf(p.id)), el("h3", { textContent: labelOf(p.id) }),
         el("div", { className: "types" }, p.types.map((t) => typeBadge(t.type.name)))]), statBars(p, o)]);
       const wa = STATS.filter(([k]) => statOf(pa, k) > statOf(pb, k)).length, wb = STATS.filter(([k]) => statOf(pb, k) > statOf(pa, k)).length;
-      const verdict = bst(pa) === bst(pb) ? "Empate no total de stats" : `${pretty(bst(pa) > bst(pb) ? pa.name : pb.name)} vence no total (${Math.max(bst(pa), bst(pb))} vs ${Math.min(bst(pa), bst(pb))}) · ${wa} × ${wb} stats`;
+      const verdict = bst(pa) === bst(pb) ? "Empate no total de stats" : `${labelOf(bst(pa) > bst(pb) ? pa.id : pb.id)} vence no total (${Math.max(bst(pa), bst(pb))} vs ${Math.min(bst(pa), bst(pb))}) · ${wa} × ${wb} stats`;
       out.replaceChildren(el("div", { className: "cmp" }, [panel(pa, pb), panel(pb, pa)]), el("p", { className: "verdict", textContent: verdict }));
     } catch (e) { out.replaceChildren(stateBox("🔌", "Erro ao carregar", e.message)); }
   };
-  const chosen = (i) => el("span", { className: "tag", textContent: S.cmp[i] ? pretty(S.byId.get(S.cmp[i]).name) : "—" });
+  const chosen = (i) => el("span", { className: "tag", textContent: S.cmp[i] ? labelOf(S.cmp[i]) : "—" });
   const pickA = picker("Pokémon 1…", (id) => { S.cmp[0] = id; go("compare"); });
   const pickB = picker("Pokémon 2…", (id) => { S.cmp[1] = id; go("compare"); });
   root.append(el("h1", { textContent: "Comparar" }), el("p", { className: "lead", textContent: "Quem leva vantagem em cada stat aparece em verde." }),
@@ -423,7 +482,11 @@ function viewCompare(root) {
    ===================================================================== */
 function addTeam(id) { if (!S.team.includes(id) && S.team.length < 6) { S.team.push(id); store.set("gs.team", JSON.stringify(S.team)); } }
 function removeTeam(id) { S.team = S.team.filter((x) => x !== id); store.set("gs.team", JSON.stringify(S.team)); }
-
+async function copyTeamLink(btn) {
+  const url = `${location.origin}${location.pathname}#team=${S.team.join(",")}`;
+  try { await navigator.clipboard.writeText(url); btn.textContent = "✓ Link copiado!"; setTimeout(() => (btn.textContent = "🔗 Copiar link do time"), 2000); }
+  catch { prompt("Copie o link do seu time:", url); }
+}
 async function teamAnalysis(pokes) {
   const typeNames = [...new Set(pokes.flatMap((p) => p.types.map((t) => t.type.name)))];
   const rel = Object.fromEntries(await Promise.all(typeNames.map(async (t) => [t, (await api(`/type/${t}`)).damage_relations])));
@@ -449,7 +512,7 @@ function viewTeam(root) {
       const p = pokes[i];
       if (!p) { slots.append(el("div", { className: "slot" }, [el("div", { textContent: "＋", style: "font-size:2rem" }), el("small", { textContent: "Vaga livre" })])); continue; }
       const rm = el("button", { className: "btn ghost small", type: "button", textContent: "Remover", onclick: () => { removeTeam(p.id); go("team"); } });
-      slots.append(el("div", { className: "slot filled" }, [img(p.id, S.shiny, pretty(p.name)), el("b", { textContent: pretty(p.name) }), el("div", { className: "types" }, p.types.map((t) => typeBadge(t.type.name))), el("small", { textContent: "Total " + bst(p) }), rm]));
+      slots.append(el("div", { className: "slot filled" }, [img(p.id, S.shiny, labelOf(p.id)), el("b", { textContent: labelOf(p.id) }), el("div", { className: "types" }, p.types.map((t) => typeBadge(t.type.name))), el("small", { textContent: "Total " + bst(p) }), rm]));
     }
     out.replaceChildren(slots);
     if (!pokes.length) { out.append(stateBox("🧢", "Seu time está vazio", "Busque um Pokémon acima ou abra um na Pokédex e use “Ao time”.")); return; }
@@ -464,42 +527,89 @@ function viewTeam(root) {
         el("p", { className: "lead", textContent: "Vermelho: tipos que ameaçam seu time. Verde: tipos que seu time segura bem." }),
         el("div", { className: "tgrid" }, an.map((r) => {
           const safe = r.resist + r.immune, danger = r.weak >= 3 || r.weak - safe >= 2;
-          const c = el("div", { className: "tcell" + (danger ? " danger" : (safe > r.weak && safe >= 2 ? " safe" : "")) }, [typeBadge(r.atk),
-            el("div", { textContent: `Fracos: ${r.weak}` }), el("div", { textContent: `Resistem: ${safe}` })]); return c;
+          return el("div", { className: "tcell" + (danger ? " danger" : (safe > r.weak && safe >= 2 ? " safe" : "")) }, [typeBadge(r.atk),
+            el("div", { textContent: `Fracos: ${r.weak}` }), el("div", { textContent: `Resistem: ${safe}` })]);
         })));
     } catch { out.append(stateBox("⚠️", "Sem análise de tipos", "Não consegui carregar a tabela de tipos agora.")); }
   };
-  root.append(el("h1", { textContent: "Meu Time" }), el("p", { className: "lead", textContent: "Até 6 Pokémon, salvos neste navegador." }),
-    el("div", { className: "tools" }, [picker("Adicionar ao time…", (id) => { if (S.team.length >= 6) return alert("Seu time já tem 6 Pokémon."); addTeam(id); go("team"); })]), out);
+  const share = el("button", { className: "btn ghost", type: "button", textContent: "🔗 Copiar link do time", disabled: !S.team.length });
+  share.onclick = () => copyTeamLink(share);
+  root.append(el("h1", { textContent: "Meu Time" }), el("p", { className: "lead", textContent: "Até 6 Pokémon, salvos neste navegador. Compartilhe por link." }),
+    el("div", { className: "tools" }, [picker("Adicionar ao time…", (id) => { if (S.team.length >= 6) return alert("Seu time já tem 6 Pokémon."); addTeam(id); go("team"); }), share]), out);
   draw();
 }
 
 /* =====================================================================
-   VIEW: SHINY HUNT
+   SHINY HUNT: motor de opções (usa encontros da PokéAPI até a 7ª geração)
    ===================================================================== */
 const NO_EGGS = "no-eggs";
-function buildOptions(sp, charm) {
+const GIFT_M = new Set(["gift", "gift-egg", "only-one"]);
+const FISH_M = new Set(["old-rod", "good-rod", "super-rod", "super-rod-spots"]);
+const GRASS_M = new Set(["walk", "dark-grass", "grass-spots"]);
+
+async function encFlags(pid) {
+  const rows = await api(`/pokemon/${pid}/encounters`), byVer = {};
+  for (const r of rows) for (const vd of r.version_details) { const set = (byVer[vd.version.name] ||= new Set()); for (const ed of vd.encounter_details) set.add(ed.method.name); }
+  const out = {};
+  for (const [gid, vers] of Object.entries(ENC_VERSIONS)) {
+    const ms = [...new Set(vers.flatMap((v) => [...(byVer[v] || [])]))];
+    out[gid] = { wild: ms.some((m) => !GIFT_M.has(m)), fish: ms.some((m) => FISH_M.has(m)), grass: ms.some((m) => GRASS_M.has(m)), gift: ms.some((m) => GIFT_M.has(m)) };
+  }
+  return out;
+}
+async function evoPath(sp, pid, formKind) {
+  const chain = (await api(sp.evolution_chain.url.replace(API, "").replace(/\/$/, ""))).chain;
+  const find = (node, trail) => { const t = [...trail, node.species.name]; if (node.species.name === sp.name) return t; for (const c of node.evolves_to) { const r = find(c, t); if (r) return r; } return null; };
+  const names = find(chain, []) || [sp.name];
+  const list = await Promise.all(names.map(async (n) => {
+    if (n === sp.name) return { name: n, pid };
+    const s = S.byName.get(n); if (!s) return null;
+    let id = s.id;
+    if (formKind) { const v = (await getSpec(s.id)).varieties.find((x) => new RegExp(`-${formKind}(-|$)`).test(x.pokemon.name)); if (v) id = idFromUrl(v.pokemon.url); }
+    return { name: n, pid: id };
+  }));
+  return list.filter(Boolean);
+}
+async function buildOptions(pid, sp, charm) {
   const legend = sp.is_legendary || sp.is_mythical;
   const breedable = !sp.egg_groups.some((g) => g.name === NO_EGGS) && !legend;
   const dexes = new Set(sp.pokedex_numbers.map((x) => x.pokedex.name));
-  const opts = [];
+  const fm = (S.allById.get(pid)?.name || "").match(/-(alola|galar|hisui|paldea)(-|$)/), formKind = fm ? fm[1] : null;
+  const path = legend ? [{ name: sp.name, pid }] : await evoPath(sp, pid, formKind);
+  const members = await Promise.all(path.map(async (m) => ({ ...m, f: await encFlags(m.pid).catch(() => null) })));
+  const opts = [], noWild = [];
   for (const g of GAMES) {
     if (!g.dex.some((d) => dexes.has(d))) continue;
+    if (formKind && !FORM_GAMES[formKind].includes(g.id)) continue;
+    const verified = !!ENC_VERSIONS[g.id] && members.every((m) => m.f);
+    const has = (need) => (verified ? members.find((m) => m.f[g.id][need]) : null);
+    if (verified && !legend && !has("wild")) noWild.push(g.name);
     for (const m of g.methods) {
-      if (m.needDex && !dexes.has(m.needDex)) continue;
-      if (m.k === "legend" && !legend) continue;
-      if (m.k === "wild" && legend) continue;
-      if (m.k === "breed" && !breedable) continue;
+      let ok = false, via = null;
+      if (m.k === "breed") ok = breedable;
+      else if (m.k === "legend") ok = legend && (!m.needDex || dexes.has(m.needDex));
+      else if (m.k === "static") { if (legend) ok = true; else { const w = has("gift"); if (w) { ok = true; via = w; } } }
+      else if (!legend) { if (verified) { const w = has(m.needs || "wild"); if (w) { ok = true; via = w; } } else ok = true; }
+      if (!ok) continue;
       const useCharm = charm && g.charm && m.dc;
-      opts.push({ game: g, method: m, d: useCharm ? m.dc : m.d, charmApplied: !!useCharm,
-                  primary: legend ? (m.k === "static" || m.k === "legend") : (m.k === "wild" || m.k === "breed") });
+      opts.push({ game: g, method: m, d: useCharm ? m.dc : m.d, charmApplied: !!useCharm, verified: m.k === "wild" || m.k === "static" ? verified : true,
+                  via: via && via.pid !== pid ? via.name : null });
     }
   }
-  opts.sort((a, b) => a.d - b.d);
-  return { opts, legend, breedable };
+  opts.sort((a, b) => a.d - b.d || (b.verified - a.verified));
+  return { opts, legend, breedable, formKind, noWild };
 }
 const effort = (d) => d <= 300 ? ["Rápido", "r"] : d <= 1100 ? ["Moderado", "m"] : d <= 2800 ? ["Demorado", "d"] : ["Muito demorado", "x"];
 
+/* =====================================================================
+   VIEW: SHINY HUNT
+   ===================================================================== */
+function startHunt(pid, o) {
+  const label = `${o.game.name} · ${o.method.name}${o.charmApplied ? " (com Charm)" : ""}`;
+  if (S.hunts.some((h) => !h.found && h.pid === pid && h.label === label)) return false;
+  S.hunts.unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), pid, label, d: o.d, count: 0, startedAt: Date.now(), found: null });
+  saveHunts(); return true;
+}
 function viewShiny(root) {
   const out = el("div");
   const charmSw = el("label", { className: "switch" }, [el("input", { type: "checkbox", checked: S.charm }), el("span", { textContent: "Tenho o Shiny Charm" })]);
@@ -508,26 +618,34 @@ function viewShiny(root) {
     if (!S.hunt) { out.replaceChildren(stateBox("✨", "Qual Pokémon você quer caçar?", "Busque acima e eu mostro o melhor jogo e o melhor método.")); return; }
     out.replaceChildren(el("div", { className: "skeleton" }));
     try {
-      const [p, sp] = await Promise.all([getPoke(S.hunt), getSpec(S.hunt)]);
-      const { opts, legend, breedable } = buildOptions(sp, S.charm);
-      const prim = opts.filter((o) => o.primary), best = prim[0];
+      let pid = S.hunt, megaNote = null;
+      const rawName = S.allById.get(pid)?.name || "";
+      if (/-(mega|gmax)(-|$)/.test(rawName)) { megaNote = labelOf(pid); pid = baseSpeciesId(rawName); }
+      const p = await getPoke(pid), sp = await getSpec(specIdOf(p));
+      const { opts, legend, breedable, formKind, noWild } = await buildOptions(pid, sp, S.charm);
+      const best = opts[0];
       const tags = el("div", { className: "tags" });
       tags.append(el("span", { className: "tag", textContent: "Geração " + GENS[idFromUrl(sp.generation.url) - 1] }));
+      if (megaNote) tags.append(el("span", { className: "tag warn", textContent: `${megaNote} não tem shiny próprio: mostrando a forma base` }));
+      if (formKind) tags.append(el("span", { className: "tag warn", textContent: "Forma regional: só jogos onde ela é nativa (confira outros na Bulbapedia)" }));
       if (legend) tags.append(el("span", { className: "tag warn", textContent: sp.is_mythical ? "Mítico: pode ser shiny-locked ou só por evento" : "Lendário: encontro único (reset)" }));
       else tags.append(el("span", { className: "tag", textContent: breedable ? "Pode chocar ovos (Masuda)" : "Não bota ovos" }));
-      if (sp.evolves_from_species) tags.append(el("span", { className: "tag", textContent: `Cace ${pretty(sp.evolves_from_species.name)} e evolua; o shiny se mantém` }));
-      if (!legend) tags.append(el("span", { className: "tag", textContent: "Iniciais/presentes: só por reset" }));
-      const head = el("div", { className: "hero-card" }, [el("div", { className: "pair" }, [img(p.id, false, pretty(p.name)), img(p.id, true, "Versão shiny de " + pretty(p.name))]),
-        el("div", {}, [el("div", { className: "lead", textContent: "Plano de shiny hunt" }), el("h2", { textContent: pretty(p.name) }),
+      const head = el("div", { className: "hero-card" }, [el("div", { className: "pair" }, [img(pid, false, labelOf(pid)), img(pid, true, "Shiny de " + labelOf(pid))]),
+        el("div", {}, [el("div", { className: "lead", textContent: "Plano de shiny hunt" }), el("h2", { textContent: labelOf(pid) }),
           best ? el("div", {}, [el("div", { className: "rank", textContent: "1/" + fmt(best.d) }),
-            el("div", { textContent: `${best.game.name} · ${best.method.name}${best.charmApplied ? " (com Shiny Charm)" : ""}${best.method.approx ? " · aprox." : ""}` })])
-               : el("div", { textContent: "Sem jogo compatível nos dados atuais." }), tags])]);
-      const rows = prim.map((o) => {
-        const [lab, cls] = effort(o.d), isBest = o === best;
+            el("div", { textContent: `${best.game.name} · ${best.method.name}${best.charmApplied ? " (com Shiny Charm)" : ""}${best.method.approx ? " · aprox." : ""}${best.via ? ` · cace ${pretty(best.via)} e evolua` : ""}` })])
+               : el("div", { textContent: "Sem opção compatível nos dados atuais." }), tags])]);
+      const rows = opts.map((o, i) => {
+        const [lab, cls] = effort(o.d), isBest = i === 0;
+        const tagsRow = el("div", { className: "tags", style: "margin:4px 0 0" });
+        if (o.via) tagsRow.append(el("span", { className: "tag", textContent: `cace ${pretty(o.via)} e evolua` }));
+        if (o.method.k === "wild" || o.method.k === "static") tagsRow.append(el("span", { className: "tag" + (o.verified ? "" : " warn"), textContent: o.verified ? "✓ conferido na PokéAPI" : "⚠ disponibilidade não conferida" }));
+        const go1 = el("button", { className: "btn ghost small", type: "button", textContent: "🎯 Caçar" });
+        go1.onclick = () => { go1.textContent = startHunt(pid, o) ? "✓ Adicionado" : "Já na lista"; go1.disabled = true; };
         return el("div", { className: "opt" + (isBest ? " best" : "") }, [
-          el("div", {}, [el("div", { className: "g", textContent: (isBest ? "🥇 " : "") + o.game.name }), el("div", { className: "m", textContent: o.method.name + (o.primary ? "" : " (só se for encontro fixo/presente)") })]),
+          el("div", {}, [el("div", { className: "g", textContent: (isBest ? "🥇 " : "") + o.game.name }), el("div", { className: "m", textContent: o.method.name }), tagsRow]),
           el("div", { className: "m", textContent: o.method.note || "" }),
-          el("div", { className: "odds" }, [el("span", { textContent: (o.method.approx ? "≈ " : "") + "1/" + fmt(o.d) }), el("span", { className: "eff " + cls, textContent: lab })])]);
+          el("div", { className: "odds" }, [el("span", { textContent: (o.method.approx ? "≈ " : "") + "1/" + fmt(o.d) }), el("span", { className: "eff " + cls, textContent: lab }), go1])]);
       });
       const calc = el("div", { className: "calc" });
       if (best) {
@@ -537,9 +655,13 @@ function viewShiny(root) {
         calc.append(el("span", { textContent: "Se você fizer" }), inp, el("span", { textContent: "tentativas, a chance de já ter achado é" }), res,
           el("span", { className: "lead", textContent: `· 50% em ~${fmt(best.d * 0.69)} · 90% em ~${fmt(best.d * 2.3)} · 99% em ~${fmt(best.d * 4.6)}` }));
       }
-      out.replaceChildren(head, el("h2", { className: "sub", textContent: "Todas as opções, da mais fácil para a mais difícil" }), el("div", { className: "opts" }, rows.length ? rows : stateBox("🤷", "Sem dados", "Este Pokémon não está nos jogos catalogados.")), best ? el("h2", { className: "sub", textContent: "Calculadora de sorte" }) : null, best ? calc : null,
-        el("p", { className: "note" }, ["Odds aproximadas e simplificadas (valores com “≈” variam com a versão, a corrente e o local). Confira a ", el("a", { href: "https://bulbapedia.bulbagarden.net/wiki/Shiny_Pok%C3%A9mon", target: "_blank", rel: "noopener", textContent: "página de Shiny na Bulbapedia" }),
-          " e a ", el("a", { href: "https://bulbapedia.bulbagarden.net/w/index.php?search=" + encodeURIComponent(pretty(sp.name) + " Pokémon"), target: "_blank", rel: "noopener", textContent: "página de " + pretty(sp.name) }), " para disponibilidade exata em cada jogo."]));
+      put(out, head, el("h2", { className: "sub", textContent: "Opções, da mais fácil para a mais difícil" }),
+        el("div", { className: "opts" }, rows.length ? rows : stateBox("🤷", "Sem dados", "Este Pokémon não está nos jogos catalogados.")),
+        noWild.length ? el("p", { className: "note", textContent: `Sem encontro selvagem segundo a PokéAPI em: ${noWild.join(", ")} (só por evolução, troca, presente ou ovo).` }) : null,
+        best ? el("h2", { className: "sub", textContent: "Calculadora de sorte" }) : null, best ? calc : null,
+        el("p", { className: "note" }, ["Odds aproximadas e simplificadas (valores com “≈” variam com a versão, a corrente e o local). Nos jogos de 8ª e 9ª geração a disponibilidade selvagem não é conferida. Confira a ",
+          el("a", { href: "https://bulbapedia.bulbagarden.net/wiki/Shiny_Pok%C3%A9mon", target: "_blank", rel: "noopener", textContent: "página de Shiny na Bulbapedia" }), " e a ",
+          el("a", { href: "https://bulbapedia.bulbagarden.net/w/index.php?search=" + encodeURIComponent(pretty(sp.name) + " Pokémon"), target: "_blank", rel: "noopener", textContent: "página de " + pretty(sp.name) }), "."]));
     } catch (e) { out.replaceChildren(stateBox("🔌", "Erro ao carregar", e.message)); }
   };
   root.append(el("h1", { textContent: "Shiny Hunt" }), el("p", { className: "lead", textContent: "Descubra onde e como caçar o shiny do seu Pokémon com a menor espera." }),
@@ -548,9 +670,47 @@ function viewShiny(root) {
 }
 
 /* =====================================================================
+   VIEW: MINHAS CAÇADAS (contador de encontros)
+   ===================================================================== */
+const chanceAfter = (k, d) => 100 * (1 - Math.pow(1 - 1 / d, k));
+const pct = (x) => x.toFixed(1).replace(".", ",") + "%";
+function viewHunts(root) {
+  const out = el("div");
+  const draw = () => {
+    const active = S.hunts.filter((h) => !h.found), done = S.hunts.filter((h) => h.found);
+    const card = (h) => {
+      const bump = (n) => { h.count = Math.max(0, h.count + n); saveHunts(); draw(); };
+      const c = chanceAfter(h.count, h.d);
+      const bar = el("div", { className: "bar" }, el("i")); bar.firstChild.style.width = Math.min(100, h.count / h.d * 100) + "%"; bar.firstChild.style.background = "var(--gold)";
+      const kids = [img(h.pid, true, labelOf(h.pid)), el("div", {}, [el("h3", { textContent: labelOf(h.pid) }), el("div", { className: "m", textContent: h.label + " · 1/" + fmt(h.d) })]),
+        el("div", { className: "count", textContent: fmt(h.count) }),
+        el("div", { className: "m", textContent: `Chance acumulada de já ter achado: ${pct(c)}` + (h.count > h.d ? ` · você já passou da média (${(h.count / h.d).toFixed(1).replace(".", ",")}×)` : "") }), bar,
+        el("div", { className: "actions" }, [
+          el("button", { className: "btn big", type: "button", textContent: "+1", onclick: () => bump(1) }),
+          el("button", { className: "btn ghost", type: "button", textContent: "+10", onclick: () => bump(10) }),
+          el("button", { className: "btn ghost", type: "button", textContent: "−1", onclick: () => bump(-1) }),
+          el("button", { className: "btn ghost", type: "button", textContent: "✨ Achei!", onclick: () => { h.found = { at: Date.now(), count: h.count }; saveHunts(); draw(); } }),
+          el("button", { className: "btn ghost", type: "button", textContent: "Excluir", onclick: () => { if (confirm("Excluir esta caçada?")) { S.hunts = S.hunts.filter((x) => x !== h); saveHunts(); draw(); } } })])];
+      return el("div", { className: "panel hunt" }, kids);
+    };
+    const doneCard = (h) => el("div", { className: "panel hunt done" }, [img(h.pid, true, labelOf(h.pid)), el("h3", { textContent: "✨ " + labelOf(h.pid) }),
+      el("div", { className: "m", textContent: h.label }), el("div", { className: "count", textContent: fmt(h.found.count) + " encontros" }),
+      el("div", { className: "m", textContent: `${new Date(h.found.at).toLocaleDateString("pt-BR")} · ${(h.found.count / h.d).toFixed(1).replace(".", ",")}× a média esperada (1/${fmt(h.d)})` }),
+      el("button", { className: "btn ghost small", type: "button", textContent: "Remover", onclick: () => { S.hunts = S.hunts.filter((x) => x !== h); saveHunts(); draw(); } })]);
+    put(out, 
+      el("h2", { className: "sub", textContent: `Em andamento (${active.length})` }),
+      active.length ? el("div", { className: "hgrid" }, active.map(card)) : stateBox("🎯", "Nenhuma caçada em andamento", "Vá em Shiny Hunt, escolha um Pokémon e clique em “Caçar” na opção que preferir."),
+      done.length ? el("h2", { className: "sub", textContent: `Shinies conquistados (${done.length})` }) : null,
+      done.length ? el("div", { className: "hgrid" }, done.map(doneCard)) : null);
+  };
+  root.append(el("h1", { textContent: "Minhas Caçadas" }), el("p", { className: "lead", textContent: "Conte seus encontros e veja a chance acumulada. Fica salvo neste navegador." }), out);
+  draw();
+}
+
+/* =====================================================================
    NAVEGAÇÃO / INICIALIZAÇÃO
    ===================================================================== */
-const VIEWS = { pokedex: ["📖 Pokédex", viewPokedex], compare: ["⚔️ Comparar", viewCompare], team: ["🧢 Meu Time", viewTeam], shiny: ["✨ Shiny Hunt", viewShiny] };
+const VIEWS = { pokedex: ["📖 Pokédex", viewPokedex], compare: ["⚔️ Comparar", viewCompare], team: ["🧢 Meu Time", viewTeam], shiny: ["✨ Shiny Hunt", viewShiny], hunts: ["🎯 Caçadas", viewHunts] };
 function go(view) {
   S.view = view; history.replaceState(null, "", "#" + view);
   $("#nav").replaceChildren(...Object.entries(VIEWS).map(([k, [label]]) => {
@@ -563,9 +723,13 @@ function go(view) {
 async function init() {
   $("#view").replaceChildren(el("div", { className: "grid" }, Array.from({ length: 12 }, () => el("div", { className: "skeleton" }))));
   try {
-    const list = await api("/pokemon-species?limit=2000");
-    S.species = list.results.map((r) => ({ id: idFromUrl(r.url), name: r.name })).sort((a, b) => a.id - b.id);
-    S.byId = new Map(S.species.map((s) => [s.id, s]));
+    const [sp, all] = await Promise.all([api("/pokemon-species?limit=2000"), api("/pokemon?limit=3000")]);
+    S.species = sp.results.map((r) => ({ id: idFromUrl(r.url), name: r.name })).sort((a, b) => a.id - b.id);
+    S.byId = new Map(S.species.map((s) => [s.id, s])); S.byName = new Map(S.species.map((s) => [s.name, s]));
+    S.all = all.results.map((r) => ({ id: idFromUrl(r.url), name: r.name })).sort((a, b) => a.id - b.id);
+    S.allById = new Map(S.all.map((e) => [e.id, e]));
+    const tm = location.hash.match(/^#team=([\d,]+)/);
+    if (tm) { const ids = tm[1].split(",").map(Number).filter((n) => Number.isInteger(n) && S.allById.has(n)).slice(0, 6); if (ids.length) { S.team = [...new Set(ids)]; store.set("gs.team", JSON.stringify(S.team)); } go("team"); return; }
     const h = location.hash.slice(1); go(VIEWS[h] ? h : "pokedex");
   } catch (e) {
     $("#view").replaceChildren(stateBox("🔌", "Não consegui falar com a PokéAPI", "Verifique sua conexão e tente de novo. (" + e.message + ")"),
